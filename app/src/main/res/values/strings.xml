@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">FireStoreIntegration</string>
+    <string name="name">Name</string>
+    <string name="Class">Class</string>
+    <string name="update">Update</string>
+    <string name="delete">Delete</string>
+</resources>

@@ -45,7 +45,7 @@ class MainActivity : AppCompatActivity(), StudentInterface {
         recyclerAdapter = StudentAdapter(array, this)
         binding.recyclerView.layoutManager = linearLayoutManager
         binding.recyclerView.adapter = recyclerAdapter
-        binding.fab.setOnClickListener { dialog(-1, -1) }
+        binding.fab.setOnClickListener { dialog(-1) }
         db.collection(collectionName).addSnapshotListener { snapshots, error ->
             if (error != null) {
                 Toast.makeText(this, error.message, Toast.LENGTH_SHORT).show()
@@ -95,7 +95,7 @@ class MainActivity : AppCompatActivity(), StudentInterface {
     }
 
 
-    private fun dialog(upKey:Int,position: Int){
+    private fun dialog(position: Int){
         val dialog = Dialog(this).apply {
             setContentView(customDialogBinding.root)
             setCancelable(true)
@@ -117,7 +117,7 @@ class MainActivity : AppCompatActivity(), StudentInterface {
             }
 
         }
-        if (upKey== -1){
+        if (position== -1){
 //            add new item
 //            use function for validation
             customDialogBinding.sBtn.setOnClickListener {
@@ -136,19 +136,37 @@ class MainActivity : AppCompatActivity(), StudentInterface {
             }
             customDialogBinding.cancelBtn.setOnClickListener { dialog.dismiss() }
         }
-        if (upKey == 1){
-//            update the item
-//            get the old data then validation
+        if (position > -1) {
+            // Populate dialog fields with old data
             customDialogBinding.name.setText(array[position].Name)
             customDialogBinding.Class.setText(array[position].Class)
             customDialogBinding.rollNo.setText(array[position].rollNO)
             customDialogBinding.sBtn.setText("Update")
+
             customDialogBinding.sBtn.setOnClickListener {
-                checkValids()
-                val info=Model("",
-                    customDialogBinding.name.text.toString().trim(),customDialogBinding.Class.text.toString().trim(),
-                    customDialogBinding.rollNo.text.toString().trim())
-                dialog.dismiss()
+                try {
+                    checkValids() // Ensure this method validates input fields
+                    val docId = array[position].Id ?: throw Exception("Document ID cannot be null")
+                    db.collection(collectionName).document(docId)
+                        .set(
+                            Model(
+                                docId,
+                                customDialogBinding.name.text.toString().trim(),
+                                customDialogBinding.Class.text.toString().trim(),
+                                customDialogBinding.rollNo.text.toString().trim()
+                            )
+                        ).addOnSuccessListener {
+                            Toast.makeText(this, "Update successful", Toast.LENGTH_SHORT).show()
+                            dialog.dismiss() // Close the dialog only on success
+                        }
+                        .addOnFailureListener { e ->
+                            Toast.makeText(this, "Error: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                            Log.e("FirestoreError", "Error updating document", e)
+                        }
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Exception: ${e.message}", Toast.LENGTH_LONG).show()
+                    Log.e("Exception", "Error: ${e.message}", e)
+                }
             }
         }
     }
@@ -162,13 +180,11 @@ class MainActivity : AppCompatActivity(), StudentInterface {
             setCancelable(true)
             show()
         }
-//        array.removeAt(position)
-//        recyclerAdapter.notifyDataSetChanged()
     }
 
     override fun update(position: Int) {
-        dialog(1,position)
-        recyclerAdapter.notifyDataSetChanged()
+        Toast.makeText(this, "$position ", Toast.LENGTH_SHORT).show()
+        dialog(position)
     }
 
     override fun onClick(position: Int, model: Model) {

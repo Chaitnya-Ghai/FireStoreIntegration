@@ -23,7 +23,7 @@ class MainActivity : AppCompatActivity(), StudentInterface {
     private var array = arrayListOf<Model>()
     lateinit var recyclerAdapter: StudentAdapter
     lateinit var linearLayoutManager: LinearLayoutManager
-    lateinit var customDialogBinding: CustomDialogBinding
+
     var collectionName = "students"
 //    firebase Variables
     val db=Firebase.firestore
@@ -37,7 +37,6 @@ class MainActivity : AppCompatActivity(), StudentInterface {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-        customDialogBinding = CustomDialogBinding.inflate(layoutInflater)
         linearLayoutManager = LinearLayoutManager(this)
         recyclerAdapter = StudentAdapter(array, this)
         binding.recyclerView.layoutManager = linearLayoutManager
@@ -95,7 +94,8 @@ class MainActivity : AppCompatActivity(), StudentInterface {
     }
 
 
-    private fun dialog(position: Int = -1){
+    private fun dialog(position: Int = -1) {
+        var customDialogBinding: CustomDialogBinding = CustomDialogBinding.inflate(layoutInflater)
         val dialog = Dialog(this).apply {
             setContentView(customDialogBinding.root)
             setCancelable(true)
@@ -105,39 +105,6 @@ class MainActivity : AppCompatActivity(), StudentInterface {
             )
             show()
         }
-        fun checkValids() {
-            if (customDialogBinding.name.text.toString().isBlank()){
-                customDialogBinding.name.error="Enter Student Name"
-            }
-            if (customDialogBinding.rollNo.text.toString().isBlank()){
-                customDialogBinding.rollNo.error="Enter Student RollNo"
-            }
-            if (customDialogBinding.Class.text.toString().isBlank()) {
-                customDialogBinding.Class.error = "Enter Student Class"
-            }
-
-        }
-        if (position== -1){
-//            add new item
-//            use function for validation
-            customDialogBinding.sBtn.setOnClickListener {
-                checkValids()
-                val info=Model("",
-                    customDialogBinding.name.text.toString().trim(),
-                    customDialogBinding.Class.text.toString().trim(),
-                    customDialogBinding.rollNo.text.toString().trim())
-                Toast.makeText(this, "collectionName:${collectionName}", Toast.LENGTH_SHORT).show()
-                db.collection(collectionName).add(info).addOnCompleteListener{
-                    if (it.isSuccessful){
-                        Toast.makeText(this, "Saved id= ${array[position].id}", Toast.LENGTH_SHORT).show()
-                    }
-                    else
-                        Toast.makeText(this, "not saved", Toast.LENGTH_SHORT).show()
-                }
-                dialog.dismiss()
-                recyclerAdapter.notifyDataSetChanged()
-            }
-        }
         if (position > -1) {
             // Populate dialog fields with old data
             customDialogBinding.name.setText(array[position].Name)
@@ -146,49 +113,104 @@ class MainActivity : AppCompatActivity(), StudentInterface {
             customDialogBinding.sBtn.setText("Update")
 
             customDialogBinding.sBtn.setOnClickListener {
-                checkValids() // Ensure this method validates input fields
-                Toast.makeText(this, "get ${array[position].id}", Toast.LENGTH_SHORT).show()
-                val docId = array[position].id ?: throw Exception("Document ID cannot be null")
-                val model =Model(array[position].id, customDialogBinding.name.text.toString().trim(),customDialogBinding.Class.text.toString().trim(),customDialogBinding.rollNo.text.toString().trim())
-                Toast.makeText(this, "model get value", Toast.LENGTH_SHORT).show()
-                try {
-                    db.collection(collectionName).document(docId)
-                        .set(model).addOnSuccessListener {
-                            Toast.makeText(this, "Update successful", Toast.LENGTH_SHORT).show()
-                            dialog.dismiss() // Close the dialog only on success
-                        }
-                        .addOnFailureListener { e ->
-                            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
-                            Log.e("FailureListener", "Error updating document", e)
-                        }
-                } catch (e: Exception) {
-                    Toast.makeText(this, "Exception: ${e.message}", Toast.LENGTH_LONG).show()
-                    Log.e("Exception", "Error: ${e.message}", e)
+                if (customDialogBinding.name.text.toString().isBlank()) {
+                    customDialogBinding.name.error = "Enter Student Name"
+                }
+                if (customDialogBinding.rollNo.text.toString().isBlank()) {
+                    customDialogBinding.rollNo.error = "Enter Student RollNo"
+                }
+                if (customDialogBinding.Class.text.toString().isBlank()) {
+                    customDialogBinding.Class.error = "Enter Student Class"
+                }
+                else{
+
+                    val docId = array[position].id ?: throw Exception("Document ID cannot be null")
+                    val model = Model(
+                        array[position].id,
+                        customDialogBinding.name.text.toString().trim(),
+                        customDialogBinding.Class.text.toString().trim(),
+                        customDialogBinding.rollNo.text.toString().trim()
+                    )
+                    Toast.makeText(this@MainActivity, "model get value", Toast.LENGTH_SHORT).show()
+                    try {
+                        db.collection(collectionName).document(docId)
+                            .set(model).addOnSuccessListener {
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "Update successful",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                dialog.dismiss() // Close the dialog only on success
+                            }
+                            .addOnFailureListener { e ->
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "Error: ${e.message}",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                Log.e("FailureListener", "Error updating document")
+                            }
+                    } catch (e: Exception) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Exception: ${e.message}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        Log.e("Exception", "Error: ${e.message}")
+                    }
                 }
             }
         }
-        customDialogBinding.cancelBtn.setOnClickListener { dialog.dismiss() }
-    }
-    override fun delete(position: Int) {
-        AlertDialog.Builder(this).apply {
-            setTitle("Are you sure")
-            setPositiveButton("Delete"){_,_ ->
-                db.collection(collectionName).document(array[position].id?:"").delete()
+        else{
+//            add new item
+//            use function for validation
+            customDialogBinding.sBtn.setOnClickListener {
+                if (customDialogBinding.name.text.toString().isBlank()) {
+                    customDialogBinding.name.error = "Enter Student Name"
+                }
+                if (customDialogBinding.rollNo.text.toString().isBlank()) {
+                    customDialogBinding.rollNo.error = "Enter Student RollNo"
+                }
+                if (customDialogBinding.Class.text.toString().isBlank()) {
+                    customDialogBinding.Class.error = "Enter Student Class"
+                }
+                else {
+                    val info = Model(
+                        Name = customDialogBinding.name.text.toString().trim(),
+                        Class = customDialogBinding.Class.text.toString().trim(),
+                        rollNO = customDialogBinding.rollNo.text.toString().trim()
+                    )
+                    Toast.makeText(this@MainActivity,"collectionName:${collectionName}", Toast.LENGTH_SHORT
+                    ).show()
+                    db.collection(collectionName).add(info).addOnCompleteListener {
+                        if (it.isSuccessful) {
+                            dialog.dismiss()
+                        }
+                    }
+                }
             }
-            setNeutralButton("NO"){_,_ ->}
-            setCancelable(true)
-            show()
+            customDialogBinding.cancelBtn.setOnClickListener { dialog.dismiss() }
         }
     }
+        override fun delete(position: Int) {
+            AlertDialog.Builder(this).apply {
+                setTitle("Are you sure")
+                setPositiveButton("Delete") { _, _ ->
+                    db.collection(collectionName).document(array[position].id ?: "").delete()
+                }
+                setNeutralButton("NO") { _, _ -> }
+                setCancelable(true)
+                show()
+            }
+        }
 
-    override fun update(position: Int) {
-        Toast.makeText(this, "Clicked: ${position}", Toast.LENGTH_SHORT).show()
-        Toast.makeText(this, "${array[position].id}", Toast.LENGTH_SHORT).show()
+        override fun update(position: Int) {
+            Toast.makeText(this, "Clicked: ${position}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "${array[position].id}", Toast.LENGTH_SHORT).show()
+            dialog(position)
+        }
 
-        dialog(position)
+        override fun onClick(position: Int, model: Model) {
+            Toast.makeText(this, "chl rha hai ${position}", Toast.LENGTH_SHORT).show()
+        }
     }
-
-    override fun onClick(position: Int, model: Model) {
-        Toast.makeText(this, "chl rha hai ${position}", Toast.LENGTH_SHORT).show()
-    }
-}

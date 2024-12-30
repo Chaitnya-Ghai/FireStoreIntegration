@@ -1,11 +1,9 @@
 package com.example.firestoreintegration
 
-import android.app.ActionBar
 import android.app.Dialog
-import android.content.Intent
 import android.os.Bundle
-import android.provider.MediaStore
 import android.util.Log
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
@@ -19,7 +17,6 @@ import com.google.firebase.Firebase
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.QueryDocumentSnapshot
 import com.google.firebase.firestore.firestore
-import com.google.firebase.firestore.toObject
 
 class MainActivity : AppCompatActivity(), StudentInterface {
     lateinit var binding: ActivityMainBinding
@@ -45,63 +42,66 @@ class MainActivity : AppCompatActivity(), StudentInterface {
         recyclerAdapter = StudentAdapter(array, this)
         binding.recyclerView.layoutManager = linearLayoutManager
         binding.recyclerView.adapter = recyclerAdapter
-        binding.fab.setOnClickListener { dialog(-1) }
-        db.collection(collectionName).addSnapshotListener { snapshots, error ->
-            if (error != null) {
-                Toast.makeText(this, error.message, Toast.LENGTH_SHORT).show()
-                return@addSnapshotListener
-            }
-            for (snapshot in snapshots!!.documentChanges) {
-                val model = convertObject(snapshot.document)
-                when (snapshot.type) {
-                    DocumentChange.Type.ADDED -> {
-                        model?.let { array.add(it) }
-                        Log.e("TAG", "array size ${array.size}:")
-                    }
+        binding.fab.setOnClickListener { dialog() }
+        array.clear()
+        db.collection(collectionName)
+            .addSnapshotListener { snapshots, e ->
+                if (e != null) {
+                    return@addSnapshotListener
+                }
+                for (snapshot in snapshots!!.documentChanges) {
+                    val userModel = convertObject(snapshot.document)
 
-                    DocumentChange.Type.MODIFIED -> {
-                        model?.let {
-                            val index = getIndex(model)
-                            if (index > -1)
-                                array.set(index, it)
+                    when (snapshot.type) {
+                        DocumentChange.Type.ADDED -> {
+                            userModel?.let { array.add(it) }
+                        }
+
+                        DocumentChange.Type.MODIFIED -> {
+                            userModel?.let {
+                                var index = getIndex(userModel)
+                                if (index > -1) {
+                                    array.set(index, it)
+                                }
+                            }
+                        }
+
+                        DocumentChange.Type.REMOVED -> {
+                            userModel?.let {
+                                var index = getIndex(userModel)
+                                if (index > -1) {
+                                    array.removeAt(index)
+                                }
+                            }
                         }
                     }
-
-                    DocumentChange.Type.REMOVED -> {
-                        model?.let {
-                            val index = getIndex(it)
-                            if (index > -1)
-                                array.removeAt(index)
-                        }
-                    }
+                    recyclerAdapter.notifyDataSetChanged()
                 }
             }
-            recyclerAdapter.notifyDataSetChanged()
-        }
     }
 
-    private fun getIndex(model: Model): Int {
-        var index=-1
-        index = array.indexOfFirst { ele->
-            ele.Id?.equals(model.Id)==true
+    fun getIndex(userModel: Model) : Int{
+        var index = -1
+        index = array.indexOfFirst { element ->
+            element.id?.equals(userModel.id) == true
         }
         return index
     }
 
-    private fun convertObject(snapshot: QueryDocumentSnapshot): Model? {
-        val model :Model?=snapshot.toObject(Model::class.java)
-        model?.Id=snapshot.id
-        return model
+    fun convertObject(snapshot: QueryDocumentSnapshot) : Model?{
+        val userModel: Model = snapshot.toObject(Model::class.java)
+        userModel.id = snapshot.id ?: ""
+        return userModel
     }
 
 
-    private fun dialog(position: Int){
+    private fun dialog(position: Int = -1){
         val dialog = Dialog(this).apply {
             setContentView(customDialogBinding.root)
             setCancelable(true)
             window?.setLayout(
-                ActionBar.LayoutParams.MATCH_PARENT,
-                ActionBar.LayoutParams.WRAP_CONTENT
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.WRAP_CONTENT
             )
             show()
         }
@@ -126,15 +126,17 @@ class MainActivity : AppCompatActivity(), StudentInterface {
                     customDialogBinding.name.text.toString().trim(),
                     customDialogBinding.Class.text.toString().trim(),
                     customDialogBinding.rollNo.text.toString().trim())
-                Log.e("see", "collectionName:${collectionName}")
+                Toast.makeText(this, "collectionName:${collectionName}", Toast.LENGTH_SHORT).show()
                 db.collection(collectionName).add(info).addOnCompleteListener{
                     if (it.isSuccessful){
-                        Toast.makeText(this, "DATA Saved", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Saved id= ${array[position].id}", Toast.LENGTH_SHORT).show()
                     }
+                    else
+                        Toast.makeText(this, "not saved", Toast.LENGTH_SHORT).show()
                 }
                 dialog.dismiss()
+                recyclerAdapter.notifyDataSetChanged()
             }
-            customDialogBinding.cancelBtn.setOnClickListener { dialog.dismiss() }
         }
         if (position > -1) {
             // Populate dialog fields with old data
@@ -144,24 +146,20 @@ class MainActivity : AppCompatActivity(), StudentInterface {
             customDialogBinding.sBtn.setText("Update")
 
             customDialogBinding.sBtn.setOnClickListener {
+                checkValids() // Ensure this method validates input fields
+                Toast.makeText(this, "get ${array[position].id}", Toast.LENGTH_SHORT).show()
+                val docId = array[position].id ?: throw Exception("Document ID cannot be null")
+                val model =Model(array[position].id, customDialogBinding.name.text.toString().trim(),customDialogBinding.Class.text.toString().trim(),customDialogBinding.rollNo.text.toString().trim())
+                Toast.makeText(this, "model get value", Toast.LENGTH_SHORT).show()
                 try {
-                    checkValids() // Ensure this method validates input fields
-                    val docId = array[position].Id ?: throw Exception("Document ID cannot be null")
                     db.collection(collectionName).document(docId)
-                        .set(
-                            Model(
-                                docId,
-                                customDialogBinding.name.text.toString().trim(),
-                                customDialogBinding.Class.text.toString().trim(),
-                                customDialogBinding.rollNo.text.toString().trim()
-                            )
-                        ).addOnSuccessListener {
+                        .set(model).addOnSuccessListener {
                             Toast.makeText(this, "Update successful", Toast.LENGTH_SHORT).show()
                             dialog.dismiss() // Close the dialog only on success
                         }
                         .addOnFailureListener { e ->
-                            Toast.makeText(this, "Error: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
-                            Log.e("FirestoreError", "Error updating document", e)
+                            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            Log.e("FailureListener", "Error updating document", e)
                         }
                 } catch (e: Exception) {
                     Toast.makeText(this, "Exception: ${e.message}", Toast.LENGTH_LONG).show()
@@ -169,12 +167,13 @@ class MainActivity : AppCompatActivity(), StudentInterface {
                 }
             }
         }
+        customDialogBinding.cancelBtn.setOnClickListener { dialog.dismiss() }
     }
     override fun delete(position: Int) {
         AlertDialog.Builder(this).apply {
             setTitle("Are you sure")
             setPositiveButton("Delete"){_,_ ->
-                db.collection(collectionName).document(array[position].Id?:"").delete()
+                db.collection(collectionName).document(array[position].id?:"").delete()
             }
             setNeutralButton("NO"){_,_ ->}
             setCancelable(true)
@@ -183,11 +182,13 @@ class MainActivity : AppCompatActivity(), StudentInterface {
     }
 
     override fun update(position: Int) {
-        Toast.makeText(this, "$position ", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Clicked: ${position}", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "${array[position].id}", Toast.LENGTH_SHORT).show()
+
         dialog(position)
     }
 
     override fun onClick(position: Int, model: Model) {
-
+        Toast.makeText(this, "chl rha hai ${position}", Toast.LENGTH_SHORT).show()
     }
 }
